@@ -26,157 +26,129 @@
 set -euo pipefail
 
 GOOGLE_URL="https://developer.android.com"
+TARGET_VERSION="17"
 OUTPUT_FILE="${1:-gms_certified_props.json}"
 
 log()  { echo "[INFO]  $*" >&2; }
 warn() { echo "[WARN]  $*" >&2; }
 die()  { echo "[ERROR] $*" >&2; exit 1; }
 
-# ── Step 1: Discover Android versions ────────────────────────────────
-log "Fetching Android versions page..."
-versions_html=$(curl -sfL "$GOOGLE_URL/about/versions") \
-    || die "Failed to fetch $GOOGLE_URL/about/versions"
+# ── Step 1: Define specific OTA paths to check for Android 17 ────────
+# 新しいQPRから順に探索します (QPR3 -> QPR2 -> QPR1 -> 無印)
+declare -a ota_pages_to_check=(
+    "${GOOGLE_URL}/about/versions/${TARGET_VERSION}/qpr3/download-ota"
+    "${GOOGLE_URL}/about/versions/${TARGET_VERSION}/qpr2/download-ota"
+    "${GOOGLE_URL}/about/versions/${TARGET_VERSION}/qpr1/download-ota"
+    "${GOOGLE_URL}/about/versions/${TARGET_VERSION}/download-ota"
+)
 
-# Extract unique version numbers, sort descending
-versions=$(echo "$versions_html" \
-    | grep -oP 'https://developer\.android\.com/about/versions/\K\d+' \
-    | sort -rnu)
+log "Targeting Android $TARGET_VERSION. Will check ${#ota_pages_to_check[@]} potential OTA pages..."
 
-[[ -z "$versions" ]] && die "No Android versions found on the page."
-log "Found versions: $(echo $versions | tr '\n' ' ')"
+# ── Step 2: Iterate through OTA pages and find beta OTA URLs ─────────
+for ota_page in "${ota_pages_to_check[@]}"; do
+    log "Trying OTA page: $ota_page"
 
-# ── Step 2: For each version, look for QPR beta OTA pages ───────────
-for version in $versions; do
-    version_page="$GOOGLE_URL/about/versions/$version"
-    log "Checking version page: $version_page"
-
-    version_html=$(curl -sfL "$version_page" 2>/dev/null) || {
-        warn "Failed to fetch version $version page, skipping..."
+    # curlで取得。404等でページが存在しない場合はエラーを無視して次へ進む
+    ota_html=$(curl -sfL "$ota_page" 2>/dev/null) || {
+        warn "Page not found or failed to fetch, trying next..."
         continue
     }
 
-    # Find QPR download-ota paths: /about/versions/<ver>/qpr<N>/download-ota
-    # Capture QPR number and path, sort by QPR number descending
-    qpr_entries=$(echo "$version_html" \
-        | grep -oP 'href="(/about/versions/'"$version"'/qpr(\d+)/download-ota)"' \
+    # Extract beta OTA URLs and their product codenames
+    ota_matches=$(echo "$ota_html" \
+        | grep -oP 'href="(https://dl\.google\.com/[^"]*ota/([^/"]+_beta)[^"]*?)"' \
         | sed -E 's/href="([^"]+)"/\1/' \
-        | while IFS= read -r path; do
-            qpr_num=$(echo "$path" | grep -oP 'qpr\K\d+')
-            echo "$qpr_num $path"
-        done | sort -rn -k1,1)
+        || true)
 
-    if [[ -z "$qpr_entries" ]]; then
-        log "No QPR beta pages found for version $version"
+    if [[ -z "$ota_matches" ]]; then
+        log "No beta OTA URLs found on this page, trying next..."
         continue
     fi
 
-    # ── Step 3: For each QPR page, find beta OTA URLs ───────────────
-    while IFS=' ' read -r qpr_num qpr_path; do
-        ota_page="${GOOGLE_URL}${qpr_path}"
-        log "Trying OTA page: $ota_page (QPR${qpr_num})"
+    # Build an array of "model|product|ota_url" entries
+    declare -a devices=()
 
-        ota_html=$(curl -sfL "$ota_page" 2>/dev/null) || {
-            warn "Failed to fetch QPR${qpr_num} page, trying next..."
-            continue
-        }
+    # Hardcoded codename -> model mapping
+    declare -A CODENAME_MAP=(
+        [oriole]="Pixel 6"
+        [raven]="Pixel 6 Pro"
+        [bluejay]="Pixel 6a"
+        [panther]="Pixel 7"
+        [cheetah]="Pixel 7 Pro"
+        [lynx]="Pixel 7a"
+        [shiba]="Pixel 8"
+        [tangorpro]="Pixel Tablet"
+        [felix]="Pixel Fold"
+        [husky]="Pixel 8 Pro"
+        [akita]="Pixel 8a"
+        [tokay]="Pixel 9"
+        [caiman]="Pixel 9 Pro"
+        [komodo]="Pixel 9 Pro XL"
+        [comet]="Pixel 9 Pro Fold"
+        [tegu]="Pixel 9a"
+        [frankel]="Pixel 10"
+        [blazer]="Pixel 10 Pro"
+        [mustang]="Pixel 10 Pro XL"
+        [rango]="Pixel 10 Pro Fold"
+        [stallion]="Pixel 10a"
+    )
 
-        # Extract beta OTA URLs and their product codenames
-        # Pattern: href="https://dl.google.com/.../<product>_beta.../..."
-        ota_matches=$(echo "$ota_html" \
-            | grep -oP 'href="(https://dl\.google\.com/[^"]*ota/([^/"]+_beta)[^"]*?)"' \
-            | sed -E 's/href="([^"]+)"/\1/' \
-            || true)
+    while IFS= read -r ota_url; do
+        product=$(echo "$ota_url" | grep -oP '[^/]+_beta' | head -1)
+        [[ -z "$product" ]] && continue
 
-        if [[ -z "$ota_matches" ]]; then
-            log "No beta OTA URLs found on this page, trying next..."
-            continue
+        # Derive codename by stripping _beta suffix
+        codename="${product%_beta}"
+
+        # Look up model from codename map
+        model="${CODENAME_MAP[$codename]:-}"
+
+        if [[ -n "$model" ]]; then
+            devices+=("${model}|${product}|${ota_url}")
+            log "Matched: $model -> $product ($codename)"
+        else
+            warn "Unknown codename '$codename' from product '$product', skipping..."
         fi
+    done <<< "$ota_matches"
 
-        # Build an array of "model|product|ota_url" entries
-        declare -a devices=()
+    if [[ ${#devices[@]} -eq 0 ]]; then
+        log "Could not match devices to OTA URLs on this page, trying next..."
+        unset devices
+        continue
+    fi
 
-        # Hardcoded codename -> model mapping
-        declare -A CODENAME_MAP=(
-            [oriole]="Pixel 6"
-            [raven]="Pixel 6 Pro"
-            [bluejay]="Pixel 6a"
-            [panther]="Pixel 7"
-            [cheetah]="Pixel 7 Pro"
-            [lynx]="Pixel 7a"
-            [shiba]="Pixel 8"
-            [tangorpro]="Pixel Tablet"
-            [felix]="Pixel Fold"
-            [husky]="Pixel 8 Pro"
-            [akita]="Pixel 8a"
-            [tokay]="Pixel 9"
-            [caiman]="Pixel 9 Pro"
-            [komodo]="Pixel 9 Pro XL"
-            [comet]="Pixel 9 Pro Fold"
-            [tegu]="Pixel 9a"
-            [frankel]="Pixel 10"
-            [blazer]="Pixel 10 Pro"
-            [mustang]="Pixel 10 Pro XL"
-            [rango]="Pixel 10 Pro Fold"
-            [stallion]="Pixel 10a"
-        )
+    # ── Step 3: Pick a random device ────────────────────────────
+    picked="${devices[$((RANDOM % ${#devices[@]}))]}"
+    IFS='|' read -r model product ota_url <<< "$picked"
+    device="${product%_beta}"
 
-        while IFS= read -r ota_url; do
-            product=$(echo "$ota_url" | grep -oP '[^/]+_beta' | head -1)
-            [[ -z "$product" ]] && continue
+    log "Selected: $model ($product) from Android $TARGET_VERSION"
+    log "OTA URL: $ota_url"
 
-            # Derive codename by stripping _beta suffix
-            codename="${product%_beta}"
+    # ── Step 4: Fetch first 4 KB of OTA to extract metadata ─────
+    log "Fetching first 4 KB from OTA..."
+    partial_data=$(curl -sfL --range 0-4095 "$ota_url" \
+        | strings 2>/dev/null) \
+        || die "Failed to fetch partial OTA data."
 
-            # Look up model from codename map
-            model="${CODENAME_MAP[$codename]:-}"
+    fingerprint=$(echo "$partial_data" \
+        | grep -oP 'post-build=\K.*' | head -1 | tr -d '\r')
+    security_patch=$(echo "$partial_data" \
+        | grep -oP 'security-patch-level=\K.*' | head -1 | tr -d '\r')
 
-            if [[ -n "$model" ]]; then
-                devices+=("${model}|${product}|${ota_url}")
-                log "Matched: $model -> $product ($codename)"
-            else
-                warn "Unknown codename '$codename' from product '$product', skipping..."
-            fi
-        done <<< "$ota_matches"
+    [[ -z "$fingerprint" ]]    && die "Could not extract fingerprint from OTA metadata."
+    [[ -z "$security_patch" ]]  && die "Could not extract security patch from OTA metadata."
 
-        if [[ ${#devices[@]} -eq 0 ]]; then
-            log "Could not match devices to OTA URLs, trying next..."
-            unset devices
-            continue
-        fi
+    log "Fingerprint:      $fingerprint"
+    log "Security Patch:  $security_patch"
 
-        # ── Step 4: Pick a random device ────────────────────────────
-        picked="${devices[$((RANDOM % ${#devices[@]}))]}"
-        IFS='|' read -r model product ota_url <<< "$picked"
-        device="${product%_beta}"
+    # Parse sub-fields from the fingerprint
+    fp_brand=$(echo "$fingerprint"   | cut -d'/' -f1)
+    fp_release=$(echo "$fingerprint" | grep -oP ':\K[^/]+' | head -1)
+    fp_id=$(echo "$fingerprint"      | grep -oP '/\K[A-Z][A-Z0-9.]+' | head -1)
 
-        log "Selected: $model ($product) from Android $version QPR${qpr_num}"
-        log "OTA URL: $ota_url"
-
-        # ── Step 5: Fetch first 4 KB of OTA to extract metadata ─────
-        log "Fetching first 4 KB from OTA..."
-        partial_data=$(curl -sfL --range 0-4095 "$ota_url" \
-            | strings 2>/dev/null) \
-            || die "Failed to fetch partial OTA data."
-
-        fingerprint=$(echo "$partial_data" \
-            | grep -oP 'post-build=\K.*' | head -1 | tr -d '\r')
-        security_patch=$(echo "$partial_data" \
-            | grep -oP 'security-patch-level=\K.*' | head -1 | tr -d '\r')
-
-        [[ -z "$fingerprint" ]]    && die "Could not extract fingerprint from OTA metadata."
-        [[ -z "$security_patch" ]]  && die "Could not extract security patch from OTA metadata."
-
-        log "Fingerprint:     $fingerprint"
-        log "Security Patch:  $security_patch"
-
-        # Parse sub-fields from the fingerprint
-        # Format: brand/product/device:release/id/inc:type/tags
-        fp_brand=$(echo "$fingerprint"   | cut -d'/' -f1)
-        fp_release=$(echo "$fingerprint" | grep -oP ':\K[^/]+' | head -1)
-        fp_id=$(echo "$fingerprint"      | grep -oP '/\K[A-Z][A-Z0-9.]+' | head -1)
-
-        # ── Step 6: Write JSON ──────────────────────────────────────
-        cat > "$OUTPUT_FILE" <<EOF
+    # ── Step 5: Write JSON ──────────────────────────────────────
+    cat > "$OUTPUT_FILE" <<EOF
 {
     "MANUFACTURER": "Google",
     "MODEL": "$model",
@@ -191,15 +163,13 @@ for version in $versions; do
 }
 EOF
 
-        log "Written to $OUTPUT_FILE"
-        echo ""
-        cat "$OUTPUT_FILE"
+    log "Written to $OUTPUT_FILE"
+    echo ""
+    cat "$OUTPUT_FILE"
 
-        unset devices
-        exit 0
-
-    done <<< "$qpr_entries"
+    unset devices
+    exit 0
 
 done
 
-die "No valid beta OTA found across all versions."
+die "No valid beta OTA found for Android $TARGET_VERSION across checked QPR paths."

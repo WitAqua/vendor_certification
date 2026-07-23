@@ -1,15 +1,12 @@
 {
     "MANUFACTURER": "Google",
-    "MODEL": "Pixel 10 Pro XL",
-    "FINGERPRINT": "google/mustang_beta/mustang:16/BP41.250916.009.A1/14246511:user/release-keys",
+    "MODEL": "Pixel Tablet",
+    "FINGERPRINT": "google/tangorpro_beta/tangorpro:CinnamonBun/CP41.260701.005/15834971:user/release-keys",
     "BRAND": "google",
-    "PRODUCT": "mustang_beta",
-    "DEVICE": "mustang",
-    "VERSION.RELEASE": "16",
-    "ID": "BP41.250916.009.A1",
-    "VERSION.INCREMENTAL": "14246511",
-    "TYPE": "user",
-    "TAGS": "release-keys",
-    "VERSION.SECURITY_PATCH": "2025-10-05",
-    "VERSION.DEVICE_INITIAL_SDK_INT": "21"
+    "PRODUCT": "tangorpro_beta",
+    "DEVICE": "tangorpro",
+    "VERSION.RELEASE": "CinnamonBun",
+    "ID": "CP41.260701.005",
+    "VERSION.SECURITY_PATCH": "2026-07-05",
+    "VERSION.DEVICE_INITIAL_SDK_INT": "32"
 }

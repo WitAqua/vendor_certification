@@ -1,12 +1,12 @@
 {
     "MANUFACTURER": "Google",
-    "MODEL": "Pixel Tablet",
-    "FINGERPRINT": "google/tangorpro_beta/tangorpro:CinnamonBun/CP41.260701.005/15834971:user/release-keys",
+    "MODEL": "Pixel 9",
+    "FINGERPRINT": "google/tokay_beta/tokay:DEV/CP41.260717.006/15938186:user/release-keys",
     "BRAND": "google",
-    "PRODUCT": "tangorpro_beta",
-    "DEVICE": "tangorpro",
-    "VERSION.RELEASE": "CinnamonBun",
-    "ID": "CP41.260701.005",
+    "PRODUCT": "tokay_beta",
+    "DEVICE": "tokay",
+    "VERSION.RELEASE": "DEV",
+    "ID": "CP41.260717.006",
     "VERSION.SECURITY_PATCH": "2026-07-05",
     "VERSION.DEVICE_INITIAL_SDK_INT": "32"
 }

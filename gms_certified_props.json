@@ -1,12 +1,12 @@
 {
     "MANUFACTURER": "Google",
-    "MODEL": "Pixel 9",
-    "FINGERPRINT": "google/tokay_beta/tokay:DEV/CP41.260717.006/15938186:user/release-keys",
+    "MODEL": "Pixel 10 Pro",
+    "FINGERPRINT": "google/blazer_beta/blazer:DEV/CP41.260731.005.B1/16056512:user/release-keys",
     "BRAND": "google",
-    "PRODUCT": "tokay_beta",
-    "DEVICE": "tokay",
+    "PRODUCT": "blazer_beta",
+    "DEVICE": "blazer",
     "VERSION.RELEASE": "DEV",
-    "ID": "CP41.260717.006",
-    "VERSION.SECURITY_PATCH": "2026-07-05",
+    "ID": "CP41.260731.005.B1",
+    "VERSION.SECURITY_PATCH": "2026-08-05",
     "VERSION.DEVICE_INITIAL_SDK_INT": "32"
 }

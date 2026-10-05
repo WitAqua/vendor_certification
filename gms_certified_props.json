@@ -1,12 +1,12 @@
 {
     "MANUFACTURER": "Google",
-    "MODEL": "Pixel Tablet",
-    "FINGERPRINT": "google/tangorpro_beta/tangorpro:17/CP41.260831.007/16416850:user/release-keys",
+    "MODEL": "Pixel 10",
+    "FINGERPRINT": "google/frankel_beta/frankel:17/DP11.260918.006/16451184:user/release-keys",
     "BRAND": "google",
-    "PRODUCT": "tangorpro_beta",
-    "DEVICE": "tangorpro",
+    "PRODUCT": "frankel_beta",
+    "DEVICE": "frankel",
     "VERSION.RELEASE": "17",
-    "ID": "CP41.260831.007",
+    "ID": "DP11.260918.006",
     "VERSION.SECURITY_PATCH": "2026-09-05",
     "VERSION.DEVICE_INITIAL_SDK_INT": "32"
 }

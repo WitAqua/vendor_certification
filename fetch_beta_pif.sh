@@ -70,8 +70,6 @@ for ota_page in "${ota_pages_to_check[@]}"; do
 
     # Hardcoded codename -> model mapping
     declare -A CODENAME_MAP=(
-        [oriole]="Pixel 6"
-        [raven]="Pixel 6 Pro"
         [bluejay]="Pixel 6a"
         [panther]="Pixel 7"
         [cheetah]="Pixel 7 Pro"
@@ -91,6 +89,10 @@ for ota_page in "${ota_pages_to_check[@]}"; do
         [mustang]="Pixel 10 Pro XL"
         [rango]="Pixel 10 Pro Fold"
         [stallion]="Pixel 10a"
+        [cubs]="Pixel 11"
+        [grizzly]="Pixel 11 Pro"
+        [kodiak]="Pixel 11 Pro XL"
+        [yogi]="Pixel 11 Pro Fold"
     )
 
     while IFS= read -r ota_url; do
